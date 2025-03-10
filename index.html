@@ -1,0 +1,407 @@
+<?php
+// Initialize session if needed for user authentication
+session_start();
+
+// Database connection (you would need to configure these values)
+$db_host = "localhost";
+$db_user = "username";
+$db_pass = "password";
+$db_name = "rp_ngoma_college";
+
+// Create connection
+$conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
+
+// Check connection
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// Handle image upload
+$upload_message = '';
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["gallery_image"])) {
+    $target_dir = "uploads/";
+    
+    // Create directory if it doesn't exist
+    if (!file_exists($target_dir)) {
+        mkdir($target_dir, 0777, true);
+    }
+    
+    $timestamp = time();
+    $file_extension = strtolower(pathinfo($_FILES["gallery_image"]["name"], PATHINFO_EXTENSION));
+    $new_filename = "image_" . $timestamp . "." . $file_extension;
+    $target_file = $target_dir . $new_filename;
+    
+    // Check if image file is a actual image
+    $check = getimagesize($_FILES["gallery_image"]["tmp_name"]);
+    if($check !== false) {
+        // Check file size (limit to 5MB)
+        if ($_FILES["gallery_image"]["size"] > 5000000) {
+            $upload_message = "Sorry, your file is too large. Maximum size is 5MB.";
+        } else {
+            // Allow certain file formats
+            if($file_extension != "jpg" && $file_extension != "png" && $file_extension != "jpeg" && $file_extension != "gif") {
+                $upload_message = "Sorry, only JPG, JPEG, PNG & GIF files are allowed.";
+            } else {
+                // Upload file
+                if (move_uploaded_file($_FILES["gallery_image"]["tmp_name"], $target_file)) {
+                    // Insert image information into database
+                    $image_title = $_POST["image_title"] ? $conn->real_escape_string($_POST["image_title"]) : "Untitled";
+                    $image_category = $conn->real_escape_string($_POST["image_category"]);
+                    
+                    $sql = "INSERT INTO gallery_images (filename, title, category, upload_date) 
+                            VALUES ('$new_filename', '$image_title', '$image_category', NOW())";
+                    
+                    if ($conn->query($sql) === TRUE) {
+                        $upload_message = "The image has been uploaded successfully.";
+                    } else {
+                        $upload_message = "Error: " . $sql . "<br>" . $conn->error;
+                    }
+                } else {
+                    $upload_message = "Sorry, there was an error uploading your file.";
+                }
+            }
+        }
+    } else {
+        $upload_message = "File is not an image.";
+    }
+}
+
+// Fetch gallery images from database
+$gallery_images = [];
+$sql = "SELECT * FROM gallery_images ORDER BY upload_date DESC";
+$result = $conn->query($sql);
+
+if ($result->num_rows > 0) {
+    while($row = $result->fetch_assoc()) {
+        $gallery_images[] = $row;
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RP Ngoma College</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+        
+        body {
+            background-color: #f0f0f0;
+        }
+        
+        /* Header styles - Updated */
+        header {
+            background-color: #003366;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+        }
+        
+        .college-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .nav-links {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+        
+        .nav-links a {
+            color: white;
+            background-color: #0055a4;
+            padding: 5px 15px;
+            margin: 0 5px;
+            text-decoration: none;
+            border-radius: 3px;
+        }
+        
+        .nav-links a:hover {
+            background-color: #0066cc;
+        }
+        
+        /* Hero section */
+        .hero {
+            background-color: #808080;
+            color: white;
+            padding: 60px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .hero h1 {
+            margin-bottom: 15px;
+            font-size: 32px;
+        }
+        
+        /* Gallery section */
+        .gallery-section {
+            background-color: white;
+            padding: 30px;
+            margin: 0 auto 30px;
+            max-width: 1200px;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .gallery-section h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+            position: relative;
+        }
+        
+        .gallery-section h2:after {
+            content: "";
+            display: block;
+            width: 50px;
+            height: 3px;
+            background-color: #ffcc00;
+            margin: 10px auto 0;
+        }
+        
+        .upload-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .upload-box {
+            flex: 1;
+            min-width: 300px;
+            border: 2px dashed #ddd;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px;
+        }
+        
+        .upload-form {
+            margin-top: 20px;
+        }
+        
+        .upload-form input[type="text"],
+        .upload-form select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        
+        .upload-form button {
+            background-color: #003366;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        
+        .upload-form button:hover {
+            background-color: #004c99;
+        }
+        
+        .upload-message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f8f8f8;
+        }
+        
+        .success {
+            color: green;
+            border-left: 3px solid green;
+        }
+        
+        .error {
+            color: red;
+            border-left: 3px solid red;
+        }
+        
+        /* Gallery grid */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .gallery-item {
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .gallery-item:hover {
+            transform: translateY(-5px);
+        }
+        
+        .gallery-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        
+        .gallery-item .info {
+            padding: 15px;
+            background-color: #fff;
+        }
+        
+        .gallery-item h3 {
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+        
+        .gallery-item .category {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .gallery-item .date {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+        }
+        
+        /* Footer */
+        footer {
+            background-color: #002244;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .upload-container {
+                flex-direction: column;
+            }
+            
+            .upload-box {
+                width: 100%;
+                margin-bottom: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Updated Header -->
+    <header>
+        <div class="college-name">RP NGOMA COLLEGE</div>
+        <div class="nav-links">
+            <a href="index.php">Home</a>
+            <a href="gallery.php">Gallery</a>
+            <a href="about.php">About Us</a>
+        </div>
+    </header>
+    
+    <!-- Hero Section -->
+    <section class="hero">
+        <h1>Welcome to RP Ngoma College</h1>
+        <p>Providing quality education and skills</p>
+    </section>
+    
+    <!-- Gallery Section -->
+    <section class="gallery-section">
+        <h2>Gallery</h2>
+        
+        <!-- Upload Form Section -->
+        <div class="upload-container">
+            <div class="upload-box">
+                <h3>Upload Images</h3>
+                <form class="upload-form" method="POST" enctype="multipart/form-data">
+                    <div>
+                        <input type="text" name="image_title" placeholder="Image Title (Optional)">
+                    </div>
+                    <div>
+                        <select name="image_category" required>
+                            <option value="" disabled selected>Select Category</option>
+                            <option value="Student Life">Student Life</option>
+                            <option value="Campus Events">Campus Events</option>
+                            <option value="Academic Activities">Academic Activities</option>
+                        </select>
+                    </div>
+                    <div>
+                        <input type="file" name="gallery_image" required>
+                    </div>
+                    <div>
+                        <button type="submit">Upload Image</button>
+                    </div>
+                    
+                    <?php if (!empty($upload_message)): ?>
+                        <div class="upload-message <?php echo strpos($upload_message, 'successfully') !== false ? 'success' : 'error'; ?>">
+                            <?php echo $upload_message; ?>
+                        </div>
+                    <?php endif; ?>
+                </form>
+            </div>
+            
+            <div class="upload-box">
+                <h3>Upload Requirements</h3>
+                <ul style="text-align: left; padding-left: 20px;">
+                    <li>Maximum file size: 5MB</li>
+                    <li>Accepted formats: JPG, JPEG, PNG, GIF</li>
+                    <li>Images must be related to college activities</li>
+                    <li>Please select the appropriate category</li>
+                </ul>
+            </div>
+            
+            <div class="upload-box">
+                <h3>Need Help?</h3>
+                <p>If you're having trouble uploading images or have questions about the gallery, please contact our IT department at:</p>
+                <p><strong>Email:</strong> it@rpngoma.ac.rw</p>
+                <p><strong>Phone:</strong> +250 78 123 4567</p>
+            </div>
+        </div>
+        
+        <!-- Gallery Grid -->
+        <div class="gallery-grid">
+            <?php foreach ($gallery_images as $image): ?>
+            <div class="gallery-item">
+                <img src="uploads/<?php echo $image['filename']; ?>" alt="<?php echo $image['title']; ?>">
+                <div class="info">
+                    <h3><?php echo $image['title']; ?></h3>
+                    <div class="category"><?php echo $image['category']; ?></div>
+                    <div class="date">Uploaded: <?php echo date('M d, Y', strtotime($image['upload_date'])); ?></div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+            
+            <?php if (empty($gallery_images)): ?>
+            <p style="grid-column: 1 / -1; text-align: center; padding: 30px;">No images have been uploaded yet. Be the first to contribute to our gallery!</p>
+            <?php endif; ?>
+        </div>
+    </section>
+    
+    <!-- Footer -->
+    <footer>
+        <p>&copy; <?php echo date('Y'); ?> RP Ngoma College. All Rights Reserved.</p>
+    </footer>
+    
+    <script>
+        // Preview uploaded image before submission
+        document.querySelector('input[type="file"]').addEventListener('change', function(e) {
+            if (this.files && this.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    // You could add image preview functionality here
+                    console.log('Image selected');
+                }
+                reader.readAsDataURL(this.files[0]);
+            }
+        });
+    </script>
+</body>
+</html>
