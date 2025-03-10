@@ -68,7 +68,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["gallery_image"])) {
 
 // Fetch gallery images from database
 $gallery_images = [];
-$sql = "SELECT * FROM gallery_images ORDER BY upload_date DESC";
+$sql = "SELECT * FROM gallery_images ORDER BY upload_date ASCEND";
 $result = $conn->query($sql);
 
 if ($result->num_rows > 0) {
@@ -309,7 +309,7 @@ if ($result->num_rows > 0) {
     
     <!-- Hero Section -->
     <section class="hero">
-        <h1>Welcome NYAMATA CATHOLIQUE</h1>
+        <h1>Welcome NYAMATA kigali</h1>
         <p>Providing quality and knowledge</p>
     </section>
     
