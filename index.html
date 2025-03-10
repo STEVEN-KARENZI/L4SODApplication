@@ -6,7 +6,7 @@ session_start();
 $db_host = "localhost";
 $db_user = "username";
 $db_pass = "password";
-$db_name = "rp_ngoma_college";
+$db_name = "communication_as db";
 
 // Create connection
 $conn = new mysqli($db_host, $db_user, $db_pass, $db_name);
@@ -62,7 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_FILES["gallery_image"])) {
             }
         }
     } else {
-        $upload_message = "File is not an image.";
+        $upload_message = "File is not EXIT.";
     }
 }
 
